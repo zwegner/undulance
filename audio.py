@@ -15,7 +15,7 @@ p = pyaudio.PyAudio()
 #        print(p.get_device_info_by_index(i))
 
 # open stream
-stream = p.open(format=pyaudio.paFloat32,
+stream = p.open(format=pyaudio.paInt16,
         output_device_index=2,
         channels=1,
         rate=sample_rate,
@@ -122,9 +122,15 @@ for name, cls in ops.items():
 class Osc(Node):
     def setup(self):
         self.phase = 0
+        self.last_freq = None
     def eval(self, ctx):
-        self.phase += self.freq.eval(ctx) / ctx.sample_rate
-        return self.eval_wave(self.phase % 1)
+        freq = self.freq.eval(ctx)
+        if freq != self.last_freq:
+            self.phase_inc = freq / ctx.sample_rate
+            self.last_freq = freq
+        self.phase += self.phase_inc
+        self.phase -= int(self.phase)
+        return self.eval_wave(self.phase)
     def __str__(self):
         return '%s(%s)' % (self.__class__.__name__, self.freq)
 
@@ -180,13 +186,21 @@ def EnvelopeBeat(input, beat):
 @operator('note')
 class Diatonic(Node):
     half_step = 2 ** (1 / 12)
+    def setup(self):
+        self.last_note = None
     def eval(self, ctx):
-        return 256 * Diatonic.half_step ** (self.note.eval(ctx) - 40)
+        note = self.note.eval(ctx)
+        if note != self.last_note:
+            self.value = 256 * Diatonic.half_step ** (note - 40)
+            self.last_note = note
+        return self.value
 
 @operator('bpm')
 class Beat(Node):
+    def setup(self):
+        self.ratio = self.bpm.eval(ctx) / (ctx.sample_rate * 60)
     def eval(self, ctx):
-        return self.bpm.eval(ctx) * (ctx.sample / (ctx.sample_rate * 60))
+        return ctx.sample * self.ratio
 
 @operator('beat')
 class Trigger(Node):
@@ -209,10 +223,10 @@ ctx = Context()
 ctx.sample_rate = sample_rate
 
 beat = Beat(120)
-section = Switcher(beat / 8, [1, 2, 1, 4])
-eq = EnvelopeBeat(SawUp(Diatonic(section + Switcher(beat, [30]))), beat * section)
-eq += EnvelopeBeat(SawUp(110), beat / 2)
-eq += EnvelopeBeat(SawDown(256), beat / 4)
+section = Switcher(beat / 4, [2, 4, 7/2, 8])
+eq = EnvelopeBeat(SawUp(Diatonic(section + Switcher(beat * section, [30, 32, 39, 42]))), beat * section)
+#eq += EnvelopeBeat(SawUp(110), beat / 2)
+#eq += EnvelopeBeat(Noise(), beat / 4)
 eq /= 20
 
 ctx.sample = 0
@@ -220,6 +234,6 @@ while True:
     try:
         ctx.sample += 1
         sample = eq.eval(ctx)
-        stream.write(struct.pack('f', sample))
+        stream.write(struct.pack('h', int(sample * 65535)))
     except KeyboardInterrupt:
         exit()
