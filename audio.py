@@ -10,22 +10,23 @@ import threading
 
 sample_rate = 44100
 
-p = pyaudio.PyAudio()
-#print(p.get_device_count())
-#for i in range(p.get_device_count()):
-#    print(p.get_device_info_by_index(i))
+if 0:
+    import pyaudio
+    p = pyaudio.PyAudio()
+    #print(p.get_device_count())
+    #for i in range(p.get_device_count()):
+    #    print(p.get_device_info_by_index(i))
 
-# open stream
-stream = p.open(format=pyaudio.paInt16,
-        output_device_index=1,
-        channels=1,
-        rate=sample_rate,
-        output=True)
-
-#p = subprocess.Popen(['play', '-r', '44100', '-b', '16', '-e', 'signed-integer', '-c', '1', '-t', 'raw', '-'],
-##p = subprocess.Popen(['play', '-t', 'raw', '-'],
-#        stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-#stream = p.stdin
+    # open stream
+    stream = p.open(format=pyaudio.paInt16,
+            output_device_index=1,
+            channels=1,
+            rate=sample_rate,
+            output=True)
+else:
+    p = subprocess.Popen(['sox', '-q', '-r', '44100', '-b', '16', '-e', 'signed-integer', '-c', '1', '-t', 'raw', '-', '-d'],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    stream = p.stdin
 
 def exit():
     sys.exit(0)
