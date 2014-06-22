@@ -1,35 +1,5 @@
 import math
-import os
-import pyaudio
 import random
-import readline
-import struct
-import subprocess
-import sys
-import threading
-
-sample_rate = 44100
-
-if 0:
-    import pyaudio
-    p = pyaudio.PyAudio()
-    #print(p.get_device_count())
-    #for i in range(p.get_device_count()):
-    #    print(p.get_device_info_by_index(i))
-
-    # open stream
-    stream = p.open(format=pyaudio.paInt16,
-            output_device_index=1,
-            channels=1,
-            rate=sample_rate,
-            output=True)
-else:
-    p = subprocess.Popen(['sox', '-q', '-r', '44100', '-b', '16', '-e', 'signed-integer', '-c', '1', '-t', 'raw', '-', '-d'],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    stream = p.stdin
-
-def exit():
-    sys.exit(0)
 
 class Context:
     pass
@@ -232,10 +202,8 @@ class MajorScale(Node):
 
 @operator('bpm')
 class Beat(Node):
-    def setup(self):
-        self.ratio = self.bpm_eval(ctx) / (ctx.sample_rate * 60)
     def eval(self, ctx):
-        return ctx.sample * self.ratio
+        return ctx.sample * self.bpm_eval(ctx) / (ctx.sample_rate * 60)
 
 @operator('beat')
 class Rhythm(Node):
@@ -281,12 +249,3 @@ eq = EnvelopeBeat(SawUp(Diatonic(Scale(Sample(Trigger(bs), SawDown(Const(200) / 
 #eq += ExpEnvelopeBeat(SawUp(256), beat * section)
 #eq += ExpEnvelopeBeat(Square(Diatonic(Sample(Trigger(beat*section), SawUp(beat*2 + 490)) * 4 + 30)), beat)
 #eq += ExpEnvelopeBeat(Noise(), beat / 4)
-
-ctx.sample = 0
-while True:
-    try:
-        ctx.sample += 1
-        sample = eq.eval(ctx)
-        stream.write(struct.pack('h', int(sample * (65535 / 20.))))
-    except KeyboardInterrupt:
-        exit()
