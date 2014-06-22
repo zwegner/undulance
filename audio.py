@@ -78,6 +78,11 @@ class Div(Binop):
     def eval(self, ctx):
         return self.lhs_eval(ctx) / self.rhs_eval(ctx)
 
+@binop('%')
+class Mod(Binop):
+    def eval(self, ctx):
+        return self.lhs_eval(ctx) % self.rhs_eval(ctx)
+
 # Add in operator overloading to Node class. Must be done after the child classes
 # are instantiated... weird.
 
@@ -86,13 +91,14 @@ ops = {
     '__sub__': Sub,
     '__mul__': Mul,
     '__truediv__': Div,
+    '__mod__': Mod,
 }
 for name, cls in ops.items():
     # ugh, make sure there's a new scope so the right names get captured
     def add(name, cls):
-        def blah(self, rhs):
+        def binop(self, rhs):
             return cls(self, rhs)
-        setattr(Node, name, blah)
+        setattr(Node, name, binop)
     add(name, cls)
 
 @operator('freq')
