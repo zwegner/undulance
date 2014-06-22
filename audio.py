@@ -87,18 +87,21 @@ class Mod(Binop):
 # are instantiated... weird.
 
 ops = {
-    '__add__': Add,
-    '__sub__': Sub,
-    '__mul__': Mul,
-    '__truediv__': Div,
-    '__mod__': Mod,
+    'add': Add,
+    'sub': Sub,
+    'mul': Mul,
+    'truediv': Div,
+    'mod': Mod,
 }
 for name, cls in ops.items():
     # ugh, make sure there's a new scope so the right names get captured
     def add(name, cls):
         def binop(self, rhs):
             return cls(self, rhs)
-        setattr(Node, name, binop)
+        def rbinop(self, lhs):
+            return cls(lhs, self)
+        setattr(Node, '__%s__' % name, binop)
+        setattr(Node, '__r%s__' % name, rbinop)
     add(name, cls)
 
 @operator('freq')
