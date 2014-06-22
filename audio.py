@@ -42,6 +42,11 @@ class Const(Node):
     def __str__(self):
         return '%s' % self.value
 
+@operator('value')
+class Int(Node):
+    def eval(self, ctx):
+        return int(self.value_eval(ctx))
+
 @operator('lhs', 'rhs')
 class Binop(Node):
     def __str__(self):
