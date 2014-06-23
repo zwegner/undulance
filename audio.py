@@ -15,8 +15,9 @@ def operator(*params):
     def decorate(cls):
         def __init__(self, *args):
             for p, a in zip(params, args):
-                # Is this ever not needed?
-                if not isinstance(self, Const):
+                if p.startswith('!'):
+                    p = p[1:]
+                else:
                     a = fixup(a)
                 setattr(self, p, a)
                 if hasattr(a, 'eval'):
@@ -35,7 +36,7 @@ def operator(*params):
 class Node:
     pass
 
-@operator('value')
+@operator('!value')
 class Const(Node):
     def eval(self, ctx):
         return self.value
