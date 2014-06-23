@@ -2,13 +2,21 @@ import math
 import random
 
 class Context:
-    pass
+    def __init__(self):
+        self.syms = {}
+    def load(self, name):
+        return self.syms.get(name, 0)
+    def store(self, name, value):
+        self.syms[name] = value
+        return self.syms[name]
 
 def fixup(arg):
     if isinstance(arg, list):
         return [fixup(a) for a in arg]
     if isinstance(arg, (float, int)):
         arg = Const(arg)
+    if isinstance(arg, str):
+        arg = Load(arg)
     return arg
 
 def operator(*params):
@@ -47,6 +55,16 @@ class Const(Node):
 class Int(Node):
     def eval(self, ctx):
         return int(self.value_eval(ctx))
+
+@operator('!name')
+class Load(Node):
+    def eval(self, ctx):
+        return ctx.load(self.name)
+
+@operator('!name', 'value')
+class Store(Node):
+    def eval(self, ctx):
+        return ctx.store(self.name, self.value_eval(ctx))
 
 @operator('lhs', 'rhs')
 class Binop(Node):
@@ -253,6 +271,15 @@ class Switcher(Node):
 
 ctx = Context()
 ctx.sample_rate = sample_rate
+
+@operator('expr', '!args')
+class FunctionCall(Node):
+    def eval(self, ctx):
+        for k, v in self.args.items():
+            ctx.store(k, v)
+        return self.expr.eval(ctx)
+    def __str__(self):
+        return 'f(%s) { %s }' % (', '.join(self.args), self.expr)
 
 beat = Beat(120)
 section = Switcher(beat / 4, [1, 3, 6, 8])
