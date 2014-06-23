@@ -1,5 +1,6 @@
 import math
 import random
+import threading
 
 class Context:
     def __init__(self):
@@ -280,6 +281,34 @@ class FunctionCall(Node):
         return self.expr.eval(ctx)
     def __str__(self):
         return 'f(%s) { %s }' % (', '.join(self.args), self.expr)
+
+class MIDIThread(threading.Thread):
+    def __init__(self, shim):
+        super().__init__()
+        self.shim = shim
+    def run(self):
+        import mido
+        notes = {}
+        with mido.open_input(self.shim.device) as input:
+            for msg in input:
+                if msg.type == 'note_on':
+                    notes[msg.note] = msg.velocity
+                elif msg.type == 'note_off':
+                    del notes[msg.note]
+                self.shim.set_notes(notes)
+
+@operator('!device', '!value')
+class MIDIShim(Node):
+    def setup(self):
+        self.eq = Const(0)
+        self.thread = MIDIThread(self)
+        self.thread.daemon = True
+        self.thread.start()
+    def eval(self, ctx):
+        return self.eq.eval(ctx)
+    def set_notes(self, notes):
+        self.eq = sum((FunctionCall(self.value, {'note': k, 'velocity': v})
+            for k, v in notes.items()), Const(0))
 
 beat = Beat(120)
 section = Switcher(beat / 4, [1, 3, 6, 8])
