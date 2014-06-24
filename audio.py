@@ -274,7 +274,31 @@ class Switcher(Node):
     def eval(self, ctx):
         return self.args[int(self.beat_eval(ctx)) % len(self.args)].eval(ctx)
 
-#class Historic:
+@operator('value', 'index')
+class Historic(Node):
+    def setup(self):
+        self.buffer = [0]
+        self.current_index = 0
+    def eval(self, ctx):
+        index = int(self.index_eval(ctx))
+        if index >= len(self.buffer):
+            self.buffer = (self.buffer[:self.current_index + 1] +
+                [0] * (index - len(self.buffer) + 1) +
+                self.buffer[self.current_index + 1:])
+        index = (self.current_index - index) % len(self.buffer)
+
+        self.buffer[self.current_index] = self.value_eval(ctx)
+        self.current_index = (self.current_index + 1) % len(self.buffer)
+
+        return self.buffer[index]
+
+temp_id = 0
+def Delay(value, time, drywet, feedback):
+    global temp_id
+    temp_id += 1
+    temp = '__delay%s' % temp_id
+    delayed = Store(temp, Historic(value + feedback * Load(temp), TimeToSamples(time)))
+    return Interpolate(delayed, value, drywet)
 
 @operator('value1', 'value2', 'ratio')
 class Interpolate(Node):
