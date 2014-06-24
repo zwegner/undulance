@@ -43,7 +43,8 @@ def operator(*params):
     return decorate
 
 class Node:
-    pass
+    def __int__(self):
+        return Int(self)
 
 @operator('!value')
 class Const(Node):
@@ -170,6 +171,11 @@ class Noise(Node):
     def eval(self, ctx):
         return 2 * random.random() - 1
 
+@operator('time')
+class TimeToSamples(Node):
+    def eval(self, ctx):
+        return (self.time_eval(ctx) * ctx.sample_rate)
+
 @operator('input', 'gate')
 class ExpEnvelope(Node):
     def setup(self):
@@ -269,6 +275,12 @@ class Switcher(Node):
         return self.args[int(self.beat_eval(ctx)) % len(self.args)].eval(ctx)
 
 #class Historic:
+
+@operator('value1', 'value2', 'ratio')
+class Interpolate(Node):
+    def eval(self, ctx):
+        ratio = self.ratio_eval(ctx) 
+        return self.value1_eval(ctx) * ratio + self.value2_eval(ctx) * (1 - ratio)
 
 ctx = Context()
 ctx.sample_rate = sample_rate
