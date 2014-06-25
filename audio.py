@@ -29,8 +29,6 @@ def operator(*params):
                 else:
                     a = fixup(a)
                 setattr(self, p, a)
-                if hasattr(a, 'eval'):
-                    setattr(self, '%s_eval' % p, a.eval)
             if hasattr(self, 'setup'):
                 self.setup()
         cls.__init__ = __init__
@@ -56,7 +54,7 @@ class Const(Node):
 @operator('value')
 class Int(Node):
     def eval(self, ctx):
-        return int(self.value_eval(ctx))
+        return int(self.value.eval(ctx))
 
 @operator('!name')
 class Load(Node):
@@ -66,7 +64,7 @@ class Load(Node):
 @operator('!name', 'value')
 class Store(Node):
     def eval(self, ctx):
-        return ctx.store(self.name, self.value_eval(ctx))
+        return ctx.store(self.name, self.value.eval(ctx))
 
 @operator('lhs', 'rhs')
 class Binop(Node):
@@ -82,27 +80,27 @@ def binop(op):
 @binop('+')
 class Add(Binop):
     def eval(self, ctx):
-        return self.lhs_eval(ctx) + self.rhs_eval(ctx)
+        return self.lhs.eval(ctx) + self.rhs.eval(ctx)
 
 @binop('-')
 class Sub(Binop):
     def eval(self, ctx):
-        return self.lhs_eval(ctx) - self.rhs_eval(ctx)
+        return self.lhs.eval(ctx) - self.rhs.eval(ctx)
 
 @binop('*')
 class Mul(Binop):
     def eval(self, ctx):
-        return self.lhs_eval(ctx) * self.rhs_eval(ctx)
+        return self.lhs.eval(ctx) * self.rhs.eval(ctx)
 
 @binop('/')
 class Div(Binop):
     def eval(self, ctx):
-        return self.lhs_eval(ctx) / self.rhs_eval(ctx)
+        return self.lhs.eval(ctx) / self.rhs.eval(ctx)
 
 @binop('%')
 class Mod(Binop):
     def eval(self, ctx):
-        return self.lhs_eval(ctx) % self.rhs_eval(ctx)
+        return self.lhs.eval(ctx) % self.rhs.eval(ctx)
 
 # Add in operator overloading to Node class. Must be done after the child classes
 # are instantiated... weird.
@@ -131,7 +129,7 @@ class Osc(Node):
         self.phase = 0
         self.last_freq = None
     def eval(self, ctx):
-        freq = self.freq_eval(ctx)
+        freq = self.freq.eval(ctx)
         if freq != self.last_freq:
             self.ratio = freq / ctx.sample_rate
             self.last_freq = freq
@@ -152,7 +150,7 @@ class Square(Osc):
 @operator('freq', 'pulse_width')
 class Pulse(Osc):
     def eval_wave(self, phase):
-        return 1 if phase > self.pulse_width_eval(ctx) else -1
+        return 1 if phase > self.pulse_width.eval(ctx) else -1
 
 class SawUp(Osc):
     def eval_wave(self, phase):
@@ -174,7 +172,7 @@ class Noise(Node):
 @operator('time')
 class TimeToSamples(Node):
     def eval(self, ctx):
-        return (self.time_eval(ctx) * ctx.sample_rate)
+        return (self.time.eval(ctx) * ctx.sample_rate)
 
 @operator('input', 'gate')
 class ExpEnvelope(Node):
@@ -182,13 +180,13 @@ class ExpEnvelope(Node):
         self.last_gate = 0
         self.current = 0
     def eval(self, ctx):
-        gate = self.gate_eval(ctx) > 0
+        gate = self.gate.eval(ctx) > 0
         trigger = gate and not self.last_gate
         self.last_gate = gate
         if trigger:
             self.current = 1
         self.current *= .9999
-        return self.current * self.input_eval(ctx)
+        return self.current * self.input.eval(ctx)
 
 @operator('input', 'time', 'gate')
 class Envelope(Node):
@@ -197,14 +195,14 @@ class Envelope(Node):
         self.current = 0
         self.ratio = 0
     def eval(self, ctx):
-        gate = self.gate_eval(ctx) > 0
+        gate = self.gate.eval(ctx) > 0
         trigger = gate and not self.last_gate
         self.last_gate = gate
         if trigger:
             self.current = 1
-            self.ratio = 1 / (self.time_eval(ctx) * ctx.sample_rate)
+            self.ratio = 1 / (self.time.eval(ctx) * ctx.sample_rate)
         self.current = max(0, self.current - self.ratio)
-        return self.current * self.input_eval(ctx)
+        return self.current * self.input.eval(ctx)
 
 def EnvelopeBeat(input, time, beat):
     return Envelope(input, time, Trigger(beat))
@@ -218,7 +216,7 @@ class Diatonic(Node):
     def setup(self):
         self.last_note = None
     def eval(self, ctx):
-        note = self.note_eval(ctx)
+        note = self.note.eval(ctx)
         if note != self.last_note:
             self.value = 256 * Diatonic.half_step ** (note - 40)
             self.last_note = note
@@ -227,8 +225,8 @@ class Diatonic(Node):
 @operator('note', 'scale')
 class Scale(Node):
     def eval(self, ctx):
-        note = int(self.note_eval(ctx))
-        while not self.scale_eval(ctx)[note % 12]:
+        note = int(self.note.eval(ctx))
+        while not self.scale.eval(ctx)[note % 12]:
             note -= 1
         return note
 
@@ -238,25 +236,25 @@ scales = {root: (major_notes * 2)[root:root+12] for root in range(12)}
 @operator('root')
 class MajorScale(Node):
     def eval(self, ctx):
-        return scales[self.root_eval(ctx)]
+        return scales[self.root.eval(ctx)]
 
 @operator('bpm')
 class Beat(Node):
     def eval(self, ctx):
-        return ctx.sample * self.bpm_eval(ctx) / (ctx.sample_rate * 60)
+        return ctx.sample * self.bpm.eval(ctx) / (ctx.sample_rate * 60)
 
 @operator('beat')
 class Rhythm(Node):
     def eval(self, ctx):
-        return self.beat_eval(ctx)
+        return self.beat.eval(ctx)
 
 @operator('trigger', 'signal')
 class Sample(Node):
     def setup(self):
         self.sampled = 0
     def eval(self, ctx):
-        if self.trigger_eval(ctx):
-            self.sampled = self.signal_eval(ctx)
+        if self.trigger.eval(ctx):
+            self.sampled = self.signal.eval(ctx)
         return self.sampled
 
 @operator('beat')
@@ -264,7 +262,7 @@ class Trigger(Node):
     def setup(self):
         self.last_beat = -1
     def eval(self, ctx):
-        beat = int(self.beat_eval(ctx))
+        beat = int(self.beat.eval(ctx))
         trigger = beat != self.last_beat
         self.last_beat = beat
         return trigger
@@ -272,7 +270,7 @@ class Trigger(Node):
 @operator('beat', 'args')
 class Switcher(Node):
     def eval(self, ctx):
-        return self.args[int(self.beat_eval(ctx)) % len(self.args)].eval(ctx)
+        return self.args[int(self.beat.eval(ctx)) % len(self.args)].eval(ctx)
 
 @operator('value', 'index')
 class Historic(Node):
@@ -280,14 +278,14 @@ class Historic(Node):
         self.buffer = [0]
         self.current_index = 0
     def eval(self, ctx):
-        index = int(self.index_eval(ctx))
+        index = int(self.index.eval(ctx))
         if index >= len(self.buffer):
             self.buffer = (self.buffer[:self.current_index + 1] +
                 [0] * (index - len(self.buffer) + 1) +
                 self.buffer[self.current_index + 1:])
         index = (self.current_index - index) % len(self.buffer)
 
-        self.buffer[self.current_index] = self.value_eval(ctx)
+        self.buffer[self.current_index] = self.value.eval(ctx)
         self.current_index = (self.current_index + 1) % len(self.buffer)
 
         return self.buffer[index]
@@ -303,8 +301,8 @@ def Delay(value, time, drywet, feedback):
 @operator('value1', 'value2', 'ratio')
 class Interpolate(Node):
     def eval(self, ctx):
-        ratio = self.ratio_eval(ctx) 
-        return self.value1_eval(ctx) * ratio + self.value2_eval(ctx) * (1 - ratio)
+        ratio = self.ratio.eval(ctx) 
+        return self.value1.eval(ctx) * ratio + self.value2.eval(ctx) * (1 - ratio)
 
 ctx = Context()
 ctx.sample_rate = sample_rate
