@@ -387,6 +387,16 @@ class FunctionCall(Node):
     def __str__(self):
         return 'f(%s) { %s }' % (', '.join(self.args), self.expr)
 
+@operator('!min', '!max', '!spread', 'trigger')
+class RandomWalk(Node):
+    def setup(self):
+        self.pos = (self.max + self.min) // 2
+    def eval(self, ctx):
+        if self.trigger.eval(ctx):
+            self.pos += random.uniform(-self.spread, self.spread)
+            self.pos = max(self.min, min(self.max, self.pos))
+        return self.pos
+
 class MIDIThread(threading.Thread):
     def __init__(self, shim):
         super().__init__()
