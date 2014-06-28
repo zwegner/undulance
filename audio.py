@@ -297,10 +297,19 @@ class Beat(Node):
     def eval(self, ctx):
         return ctx.sample * self.bpm.eval(ctx) / (ctx.sample_rate * 60)
 
-@operator('beat')
+@operator('!notes', 'beat')
 class Rhythm(Node):
+    def setup(self):
+        notes = []
+        beat = 0
+        for n in self.notes:
+            beat += n
+            notes.append(beat - 1)
+        self.notes = notes
     def eval(self, ctx):
-        return self.beat.eval(ctx)
+        beat = int(self.beat.eval(ctx))
+        n = len(self.notes)
+        return (beat // n * n) + self.notes[beat % n]
 
 @operator('trigger', 'signal')
 class Sample(Node):
