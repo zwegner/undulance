@@ -53,7 +53,10 @@ while True:
     try:
         ctx.sample += 1
         sample = audio.eq.eval(ctx)
-        stream.write(struct.pack('h', int(sample * (65535 / 20.))))
+        value = int(sample * (65535 / 20.))
+        # Hard clipping? Hard clipping.
+        value = max(-32768, min(32767, value))
+        stream.write(struct.pack('h', value))
         stream.flush()
     except KeyboardInterrupt:
         sys.exit()
