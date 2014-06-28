@@ -272,23 +272,31 @@ class Switcher(Node):
     def eval(self, ctx):
         return self.args[int(self.beat.eval(ctx)) % len(self.args)].eval(ctx)
 
-@operator('value', 'index')
-class Historic(Node):
-    def setup(self):
+class HistBuffer:
+    def __init__(self):
         self.buffer = [0]
         self.current_index = 0
-    def eval(self, ctx):
-        index = int(self.index.eval(ctx))
+    def push_value(self, value):
+        self.current_index = (self.current_index + 1) % len(self.buffer)
+        self.buffer[self.current_index] = value
+    def __getitem__(self, index):
         if index >= len(self.buffer):
             self.buffer = (self.buffer[:self.current_index + 1] +
                 [0] * (index - len(self.buffer) + 1) +
                 self.buffer[self.current_index + 1:])
         index = (self.current_index - index) % len(self.buffer)
-
-        self.buffer[self.current_index] = self.value.eval(ctx)
-        self.current_index = (self.current_index + 1) % len(self.buffer)
-
         return self.buffer[index]
+
+@operator('value', 'index')
+class Historic(Node):
+    def setup(self):
+        self.hist_buffer = HistBuffer()
+        self.current_sample = None
+    def eval(self, ctx):
+        if self.current_sample != ctx.sample:
+            self.hist_buffer.push_value(self.value.eval(ctx))
+            self.current_sample = ctx.sample
+        return self.hist_buffer[int(self.index.eval(ctx))]
 
 temp_id = 0
 def Delay(value, time, drywet, feedback):
