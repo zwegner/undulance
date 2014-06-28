@@ -169,6 +169,60 @@ class Noise(Node):
     def eval(self, ctx):
         return 2 * random.random() - 1
 
+# Equations for these filters from https://github.com/graue/luasynth
+@operator('input', 'cutoff', 'resonance')
+class Filter(Node):
+    def setup(self):
+        self.hist_x = HistBuffer()
+        self.hist_y = HistBuffer()
+        self.last_cutoff = None
+        self.last_resonance = None
+    def eval(self, ctx):
+        cutoff = self.cutoff.eval(ctx)
+        resonance = self.resonance.eval(ctx)
+        # Update coefficients if needed
+        if cutoff != self.last_cutoff or resonance != self.last_resonance:
+            self.last_cutoff = cutoff
+            self.last_resonance = resonance
+            w0 = 2 * math.pi * (cutoff / ctx.sample_rate)
+            sin_w0 = math.sin(w0)
+            cos_w0 = math.cos(w0)
+            alpha = sin_w0 / (2 * self.resonance.eval(ctx))
+
+            a = [1 + alpha, -2 * cos_w0, 1 - alpha]
+            b = self.get_coeffs(sin_w0, cos_w0)
+            self.c1 = b[0] / a[0]
+            self.c2 = b[1] / a[0]
+            self.c3 = b[2] / a[0]
+            self.c4 = a[1] / a[0]
+            self.c5 = a[2] / a[0]
+
+        # Evaluate the filter recurrence relation
+        self.hist_x.push_value(self.input.eval(ctx))
+        y0 = (self.c1 * self.hist_x[0] +
+            self.c2 * self.hist_x[1] +
+            self.c3 * self.hist_x[2] -
+            self.c4 * self.hist_y[0] -
+            self.c5 * self.hist_y[1])
+        self.hist_y.push_value(y0)
+        return y0
+
+class LowpassFilter(Filter):
+    def get_coeffs(self, sin_w0, cos_w0):
+        return [(1 - cos_w0) / 2, 1 - cos_w0, (1 - cos_w0) / 2]
+
+class HighpassFilter(Filter):
+    def get_coeffs(self, sin_w0, cos_w0):
+        return [(1 + cos_w0) / 2, -(1 + cos_w0), (1 + cos_w0) / 2]
+
+class BandpassFilter(Filter):
+    def get_coeffs(self, sin_w0, cos_w0):
+        return [sin_w0 / 2, 0, -sin_w0 / 2]
+
+class NotchFilter(Filter):
+    def get_coeffs(self, sin_w0, cos_w0):
+        return [1, -2 * cos_w0, 1]
+
 @operator('time')
 class TimeToSamples(Node):
     def eval(self, ctx):
