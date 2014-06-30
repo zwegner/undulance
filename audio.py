@@ -20,15 +20,20 @@ def fixup(arg):
         arg = Load(arg)
     return arg
 
-def operator(*params):
+def operator(*params, **kwparams):
     def decorate(cls):
-        def __init__(self, *args):
+        def __init__(self, *args, **kwargs):
             for p, a in zip(params, args):
                 if p.startswith('!'):
                     p = p[1:]
                 else:
                     a = fixup(a)
                 setattr(self, p, a)
+
+            for p in kwparams:
+                setattr(self, p, kwargs[p] if p in kwargs else kwparams[p])
+            assert all(a in kwparams for a in kwargs)
+
             if hasattr(self, 'setup'):
                 self.setup()
         cls.__init__ = __init__
