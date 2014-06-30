@@ -128,17 +128,24 @@ for name, cls in ops.items():
         setattr(Node, '__r%s__' % name, rbinop)
     add(name, cls)
 
-@operator('freq')
+@operator('freq', sync=None)
 class Osc(Node):
     def setup(self):
         self.phase = 0
         self.last_freq = None
+        self.last_sync_phase = 1
     def eval(self, ctx):
         freq = self.freq.eval(ctx)
         if freq != self.last_freq:
             self.ratio = freq / ctx.sample_rate
             self.last_freq = freq
-        self.phase = ctx.sample * self.ratio
+        if self.sync:
+            assert isinstance(self.sync, Osc), str(self.sync)
+            self.sync.eval(ctx)
+            if self.sync.phase < self.last_sync_phase:
+                self.phase = 0
+            self.last_sync_phase = self.sync.phase
+        self.phase += self.ratio
         self.phase -= int(self.phase)
         return self.eval_wave(self.phase)
     def __str__(self):
