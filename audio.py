@@ -383,8 +383,14 @@ class Interpolate(Node):
         ratio = self.ratio.eval(ctx) 
         return self.value1.eval(ctx) * ratio + self.value2.eval(ctx) * (1 - ratio)
 
-ctx = Context()
-ctx.sample_rate = sample_rate
+@operator('value', 'position')
+class Pan(Node):
+    def eval(self, ctx):
+        value = self.value.eval(ctx)
+        pos = (self.position.eval(ctx) + 1) / 2
+        if ctx.load('channel'):
+            pos = 1 - pos
+        return value * pos
 
 @operator('expr', '!args')
 class FunctionCall(Node):

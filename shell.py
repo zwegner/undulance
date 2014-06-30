@@ -18,12 +18,12 @@ if 0:
 
     stream = p.open(format=pyaudio.paInt16,
             output_device_index=1,
-            channels=1,
+            channels=2,
             rate=sample_rate,
             output=True)
 else:
     p = subprocess.Popen(['sox', '-q', '-r', '44100', '-b', '16', '-e',
-            'signed-integer', '-c', '1', '-t', 'raw', '--buffer', '128', '-', '-d'],
+            'signed-integer', '-c', '2', '-t', 'raw', '--buffer', '128', '-', '-d'],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     stream = p.stdin
 
@@ -54,10 +54,12 @@ while True:
     try:
         sample += 1
         ctx.store('sample', sample)
-        value = int(audio.eq.eval(ctx) * (65535 / 20.))
-        # Hard clipping? Hard clipping.
-        value = max(-32768, min(32767, value))
-        stream.write(struct.pack('h', value))
+        for channel in [0, 1]:
+            ctx.store('channel', channel)
+            value = int(audio.eq.eval(ctx) * (65535 / 20.))
+            # Hard clipping? Hard clipping.
+            value = max(-32768, min(32767, value))
+            stream.write(struct.pack('h', value))
         stream.flush()
     except KeyboardInterrupt:
         sys.exit()
