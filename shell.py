@@ -7,8 +7,7 @@ import traceback
 
 import audio
 
-ctx = audio.Context()
-ctx.sample_rate = 44100
+sample_rate = 44100
 
 if 0:
     import pyaudio
@@ -20,7 +19,7 @@ if 0:
     stream = p.open(format=pyaudio.paInt16,
             output_device_index=1,
             channels=1,
-            rate=ctx.sample_rate,
+            rate=sample_rate,
             output=True)
 else:
     p = subprocess.Popen(['sox', '-q', '-r', '44100', '-b', '16', '-e',
@@ -36,7 +35,6 @@ class InputThread(threading.Thread):
                 input('> ')
                 last_audio = audio
                 imp.reload(audio)
-                audio.sample_rate = ctx.sample_rate
             except EOFError:
                 sys.exit()
             except:
@@ -47,13 +45,16 @@ tr = InputThread()
 tr.daemon=True
 tr.start()
 
-ctx.sample = 0
+ctx = audio.Context()
+ctx.store('sample_rate', sample_rate)
+
+sample = 0
 last_audio = audio
 while True:
     try:
-        ctx.sample += 1
-        sample = audio.eq.eval(ctx)
-        value = int(sample * (65535 / 20.))
+        sample += 1
+        ctx.store('sample', sample)
+        value = int(audio.eq.eval(ctx) * (65535 / 20.))
         # Hard clipping? Hard clipping.
         value = max(-32768, min(32767, value))
         stream.write(struct.pack('h', value))

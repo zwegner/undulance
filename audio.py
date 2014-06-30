@@ -137,7 +137,7 @@ class Osc(Node):
     def eval(self, ctx):
         freq = self.freq.eval(ctx)
         if freq != self.last_freq:
-            self.ratio = freq / ctx.sample_rate
+            self.ratio = freq / ctx.load('sample_rate')
             self.last_freq = freq
         if self.sync:
             assert isinstance(self.sync, Osc), str(self.sync)
@@ -196,7 +196,7 @@ class Filter(Node):
         if cutoff != self.last_cutoff or resonance != self.last_resonance:
             self.last_cutoff = cutoff
             self.last_resonance = resonance
-            w0 = 2 * math.pi * (cutoff / ctx.sample_rate)
+            w0 = 2 * math.pi * (cutoff / ctx.load('sample_rate'))
             sin_w0 = math.sin(w0)
             cos_w0 = math.cos(w0)
             alpha = sin_w0 / (2 * self.resonance.eval(ctx))
@@ -235,11 +235,6 @@ class NotchFilter(Filter):
     def get_coeffs(self, sin_w0, cos_w0):
         return [1, -2 * cos_w0, 1]
 
-@operator('time')
-class TimeToSamples(Node):
-    def eval(self, ctx):
-        return (self.time.eval(ctx) * ctx.sample_rate)
-
 @operator('input', 'gate')
 class ExpEnvelope(Node):
     def setup(self):
@@ -266,7 +261,7 @@ class Envelope(Node):
         self.last_gate = gate
         if trigger:
             self.current = 1
-            self.ratio = 1 / (self.time.eval(ctx) * ctx.sample_rate)
+            self.ratio = 1 / (self.time.eval(ctx) * ctx.load('sample_rate'))
         self.current = max(0, self.current - self.ratio)
         return self.current * self.input.eval(ctx)
 
@@ -307,7 +302,7 @@ class MajorScale(Node):
 @operator('bpm')
 class Beat(Node):
     def eval(self, ctx):
-        return ctx.sample * self.bpm.eval(ctx) / (ctx.sample_rate * 60)
+        return ctx.load('sample') * self.bpm.eval(ctx) / (ctx.load('sample_rate') * 60)
 
 @operator('!notes', 'beat')
 class Rhythm(Node):
@@ -368,9 +363,9 @@ class Historic(Node):
         self.hist_buffer = HistBuffer()
         self.current_sample = None
     def eval(self, ctx):
-        if self.current_sample != ctx.sample:
+        if self.current_sample != ctx.load('sample'):
             self.hist_buffer.push_value(self.value.eval(ctx))
-            self.current_sample = ctx.sample
+            self.current_sample = ctx.load('sample')
         return self.hist_buffer[int(self.index.eval(ctx))]
 
 temp_id = 0
@@ -378,7 +373,8 @@ def Delay(value, time, drywet, feedback):
     global temp_id
     temp_id += 1
     temp = '__delay%s' % temp_id
-    delayed = Store(temp, Historic(value + feedback * Load(temp), TimeToSamples(time)))
+    delayed = Store(temp, Historic(value + feedback * Load(temp),
+        (time * Load('sample_rate'))))
     return Interpolate(delayed, value, drywet)
 
 @operator('value1', 'value2', 'ratio')
