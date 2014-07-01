@@ -291,9 +291,8 @@ class Scale(Node):
             note -= 1
         return note
 
-major_notes = [1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1]
-#major_notes = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-scales = {root: (major_notes * 2)[root:root+12] for root in range(12)}
+major_notes = [1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1] * 2
+scales = {root: major_notes[root:root+12] for root in range(12)}
 @operator('root')
 class MajorScale(Node):
     def eval(self, ctx):
@@ -377,11 +376,14 @@ def Delay(value, time, drywet, feedback):
         (time * Load('sample_rate'))))
     return Interpolate(delayed, value, drywet)
 
+def interpolate(value1, value2, ratio):
+    return value1 * ratio + value2 * (1 - ratio)
+
 @operator('value1', 'value2', 'ratio')
 class Interpolate(Node):
     def eval(self, ctx):
-        ratio = self.ratio.eval(ctx) 
-        return self.value1.eval(ctx) * ratio + self.value2.eval(ctx) * (1 - ratio)
+        return interpolate(self.value1.eval(ctx), self.value2.eval(ctx),
+            self.ratio.eval(ctx))
 
 @operator('value', 'position')
 class Pan(Node):
