@@ -8,6 +8,7 @@ import traceback
 import audio
 
 sample_rate = 44100
+channels = 1
 
 if 0:
     import pyaudio
@@ -18,12 +19,13 @@ if 0:
 
     stream = p.open(format=pyaudio.paInt16,
             output_device_index=1,
-            channels=2,
+            channels=channels,
             rate=sample_rate,
             output=True)
 else:
     p = subprocess.Popen(['sox', '-q', '-r', '44100', '-b', '16', '-e',
-            'signed-integer', '-c', '2', '-t', 'raw', '--buffer', '128', '-', '-d'],
+            'signed-integer', '-c', str(channels), '-t', 'raw',
+            '--buffer', '128', '-', '-d'],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     stream = p.stdin
 
@@ -54,7 +56,7 @@ while True:
     try:
         sample += 1
         ctx.store('sample', sample)
-        for channel in [0, 1]:
+        for channel in range(channels):
             ctx.store('channel', channel)
             value = int(audio.eq.eval(ctx) * (65535 / 20.))
             # Hard clipping? Hard clipping.
