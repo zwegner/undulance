@@ -5,8 +5,6 @@ import sys
 import threading
 import traceback
 
-import audio
-
 sample_rate = 44100
 channels = 1
 
@@ -46,6 +44,8 @@ class InputThread(threading.Thread):
 tr = InputThread()
 tr.daemon=True
 tr.start()
+
+import audio
 
 ctx = audio.Context()
 ctx.store('sample_rate', sample_rate)
