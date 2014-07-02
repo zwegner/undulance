@@ -1,3 +1,4 @@
+import copy
 import math
 import random
 import threading
@@ -400,6 +401,10 @@ class Interpolate(Node):
         return interpolate(self.value1.eval(ctx), self.value2.eval(ctx),
             self.ratio.eval(ctx))
 
+def Chord(notes, base, fn):
+    # HACK? Copy the function
+    return sum(FunctionCall(copy.deepcopy(fn), {'note': base + k}) for k in notes)
+
 @operator('value', 'position')
 class Pan(Node):
     def eval(self, ctx):
@@ -413,6 +418,9 @@ class Pan(Node):
 class FunctionCall(Node):
     def eval(self, ctx):
         for k, v in self.args.items():
+            # HACK...?
+            if isinstance(v, Node):
+                v = v.eval(ctx)
             ctx.store(k, v)
         return self.expr.eval(ctx)
     def __str__(self):
@@ -453,7 +461,7 @@ class MIDIShim(Node):
     def eval(self, ctx):
         return self.eq.eval(ctx)
     def set_notes(self, notes):
-        self.eq = sum((FunctionCall(self.value, {'note': k, 'velocity': v})
+        self.eq = sum((FunctionCall(copy.deepcopy(self.value), {'note': k, 'velocity': v})
             for k, v in notes.items()), Const(0))
 
 beat = Beat(120)
