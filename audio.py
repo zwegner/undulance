@@ -326,6 +326,21 @@ class Sample(Node):
             self.sampled = self.signal.eval(ctx)
         return self.sampled
 
+@operator('target', 'step', 'trigger')
+class Glissando(Node):
+    def setup(self):
+        self.value = None
+    def eval(self, ctx):
+        if self.value is None:
+            self.value = self.target.eval(ctx)
+        if self.trigger.eval(ctx):
+            step = abs(self.step.eval(ctx))
+            target = self.target.eval(ctx)
+            # To prevent instability, only add the step if it gets us closer
+            if abs(self.value - target) > step / 2:
+                self.value += step if self.value < target else -step
+        return self.value
+
 @operator('beat')
 class Trigger(Node):
     def setup(self):
