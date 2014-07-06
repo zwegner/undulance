@@ -31,6 +31,8 @@ def operator(*params, **kwparams):
                     a = fixup(a)
                 setattr(self, p, a)
 
+            self.last_value = None
+
             for p in kwparams:
                 setattr(self, p, kwargs[p] if p in kwargs else kwparams[p])
             assert all(a in kwparams for a in kwargs)
@@ -49,6 +51,11 @@ def operator(*params, **kwparams):
 class Node:
     def __int__(self):
         return Int(self)
+    def eval_changed(self, ctx):
+        value = self.eval(ctx)
+        result = [value, value != self.last_value]
+        self.last_value = value
+        return result
 
 @operator('!value')
 class Const(Node):
@@ -133,13 +140,11 @@ for name, cls in ops.items():
 class Osc(Node):
     def setup(self):
         self.phase = 0
-        self.last_freq = None
         self.last_sync_phase = 1
     def eval(self, ctx):
-        freq = self.freq.eval(ctx)
-        if freq != self.last_freq:
+        [freq, changed] = self.freq.eval_changed(ctx)
+        if changed:
             self.ratio = freq / ctx.load('sample_rate')
-            self.last_freq = freq
         if self.sync:
             assert isinstance(self.sync, Osc), str(self.sync)
             self.sync.eval(ctx)
@@ -188,15 +193,11 @@ class Filter(Node):
     def setup(self):
         self.hist_x = HistBuffer()
         self.hist_y = HistBuffer()
-        self.last_cutoff = None
-        self.last_resonance = None
     def eval(self, ctx):
-        cutoff = self.cutoff.eval(ctx)
-        resonance = self.resonance.eval(ctx)
+        [cutoff, cutoff_changed] = self.cutoff.eval_changed(ctx)
+        [resonance, resonance_changed] = self.resonance.eval_changed(ctx)
         # Update coefficients if needed
-        if cutoff != self.last_cutoff or resonance != self.last_resonance:
-            self.last_cutoff = cutoff
-            self.last_resonance = resonance
+        if cutoff_changed or resonance_changed:
             w0 = 2 * math.pi * (cutoff / ctx.load('sample_rate'))
             sin_w0 = math.sin(w0)
             cos_w0 = math.cos(w0)
@@ -275,13 +276,10 @@ def ExpEnvelopeBeat(input, beat):
 @operator('note')
 class Diatonic(Node):
     half_step = 2 ** (1 / 12)
-    def setup(self):
-        self.last_note = None
     def eval(self, ctx):
-        note = self.note.eval(ctx)
-        if note != self.last_note:
+        [note, changed] = self.note.eval_changed(ctx)
+        if changed:
             self.value = 256 * Diatonic.half_step ** (note - 40)
-            self.last_note = note
         return self.value
 
 @operator('note', 'scale')
@@ -345,12 +343,10 @@ class Glissando(Node):
 @operator('beat')
 class Trigger(Node):
     def setup(self):
-        self.last_beat = -1
+        self.beat = Int(self.beat)
     def eval(self, ctx):
-        beat = int(self.beat.eval(ctx))
-        trigger = beat != self.last_beat
-        self.last_beat = beat
-        return trigger
+        [beat, changed] = self.beat.eval_changed(ctx)
+        return changed
 
 @operator('beat', 'args')
 class Switcher(Node):
