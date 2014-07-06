@@ -69,6 +69,11 @@ class Int(Node):
     def eval(self, ctx):
         return int(self.value.eval(ctx))
 
+@operator('value')
+class Bool(Node):
+    def eval(self, ctx):
+        return bool(self.value.eval(ctx))
+
 @operator('!name')
 class Load(Node):
     def eval(self, ctx):
@@ -240,13 +245,11 @@ class NotchFilter(Filter):
 @operator('input', 'gate')
 class ExpEnvelope(Node):
     def setup(self):
-        self.last_gate = 0
+        self.gate = Bool(self.gate)
         self.current = 0
     def eval(self, ctx):
-        gate = self.gate.eval(ctx) > 0
-        trigger = gate and not self.last_gate
-        self.last_gate = gate
-        if trigger:
+        [gate, changed] = self.gate.eval_changed(ctx)
+        if gate and changed:
             self.current = 1
         self.current *= .9999
         return self.current * self.input.eval(ctx)
@@ -254,14 +257,12 @@ class ExpEnvelope(Node):
 @operator('input', 'time', 'gate')
 class Envelope(Node):
     def setup(self):
-        self.last_gate = 0
+        self.gate = Bool(self.gate)
         self.current = 0
         self.ratio = 0
     def eval(self, ctx):
-        gate = self.gate.eval(ctx) > 0
-        trigger = gate and not self.last_gate
-        self.last_gate = gate
-        if trigger:
+        [gate, changed] = self.gate.eval_changed(ctx)
+        if gate and changed:
             self.current = 1
             self.ratio = 1 / (self.time.eval(ctx) * ctx.load('sample_rate'))
         self.current = max(0, self.current - self.ratio)
