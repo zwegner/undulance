@@ -8,6 +8,12 @@ import traceback
 sample_rate = 44100
 channels = 1
 
+export = None
+if len(sys.argv) > 1:
+    export_samples = float(sys.argv.pop(1)) * sample_rate
+    export = sys.argv.pop(1)
+assert len(sys.argv) == 1
+
 if 0:
     import pyaudio
     p = pyaudio.PyAudio()
@@ -21,9 +27,15 @@ if 0:
             rate=sample_rate,
             output=True)
 else:
-    p = subprocess.Popen(['sox', '-q', '-r', '44100', '-b', '16', '-e',
+    args = ['sox', '-q', '-r', '44100', '-b', '16', '-e',
             'signed-integer', '-c', str(channels), '-t', 'raw',
-            '--buffer', '128', '-', '-d'],
+            '--buffer', '128', '-']
+    if export:
+        ftype = export.partition('.')[2]
+        args += ['-t', ftype, export]
+    else:
+        args += ['-d']
+    p = subprocess.Popen(args,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     stream = p.stdin
 
@@ -41,9 +53,10 @@ class InputThread(threading.Thread):
                 traceback.print_exc()
                 continue
 
-tr = InputThread()
-tr.daemon=True
-tr.start()
+if not export:
+    tr = InputThread()
+    tr.daemon=True
+    tr.start()
 
 import audio
 
@@ -52,7 +65,7 @@ ctx.store('sample_rate', sample_rate)
 
 sample = 0
 last_audio = audio
-while True:
+while not export or sample < export_samples:
     try:
         sample += 1
         ctx.store('sample', sample)
