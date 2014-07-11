@@ -419,6 +419,19 @@ class Interpolate(Node):
         return interpolate(self.value1.eval(ctx), self.value2.eval(ctx),
             self.ratio.eval(ctx))
 
+@operator('value', 'folds', 'gain', 'base')
+class WaveFolder(Node):
+    def eval(self, ctx):
+        folds = int(self.folds.eval(ctx))
+        base = self.base.eval(ctx)
+        value = (self.value.eval(ctx) - base) * self.gain.eval(ctx) * folds
+        for i in range(folds):
+            if value > 1:
+                value = 2 - value
+            elif value < -1:
+                value = -2 - value
+        return value + base
+
 def Chord(notes, base, fn):
     # HACK? Copy the function
     return sum(FunctionCall(copy.deepcopy(fn), {'note': base + k}) for k in notes)
