@@ -242,6 +242,27 @@ class NotchFilter(Filter):
     def get_coeffs(self, sin_w0, cos_w0):
         return [1, -2 * cos_w0, 1]
 
+@operator('value', 'cutoff')
+class SoftSaturation(Node):
+    def eval_cutoff(self, value, cutoff):
+        if value < cutoff:
+            return value
+        elif value < 1:
+            diff = (value - cutoff)
+            return cutoff + diff / (1 + (diff / (1 - cutoff)) ** 2)
+        else:
+            return (cutoff + 1) / 2
+    def eval(self, ctx):
+        value = self.value.eval(ctx)
+        cutoff = self.cutoff.eval(ctx)
+        if value < 0:
+            return -self.eval_cutoff(-value, cutoff)
+        return self.eval_cutoff(value, cutoff)
+
+class HardSaturation(SoftSaturation):
+    def eval_cutoff(self, value, cutoff):
+        return min(value, cutoff)
+
 @operator('input', 'gate')
 class ExpEnvelope(Node):
     def setup(self):
