@@ -10,7 +10,7 @@ class Context:
         return self.syms.get(name, 0)
     def store(self, name, value):
         self.syms[name] = value
-        return self.syms[name]
+        return value
 
 def fixup(arg):
     if isinstance(arg, list):
@@ -48,6 +48,14 @@ def operator(*params, **kwparams):
         return cls
     return decorate
 
+def operator_fn(*params, **kwparams):
+    def classify(fn):
+        @operator(*params, **kwparams)
+        class Op(Node):
+            eval = fn
+        return Op
+    return classify
+
 class Node:
     def __int__(self):
         return Int(self)
@@ -64,25 +72,21 @@ class Const(Node):
     def __str__(self):
         return '%s' % self.value
 
-@operator('value')
-class Int(Node):
-    def eval(self, ctx):
-        return int(self.value.eval(ctx))
+@operator_fn('value')
+def Int(self, ctx):
+    return int(self.value.eval(ctx))
 
-@operator('value')
-class Bool(Node):
-    def eval(self, ctx):
-        return bool(self.value.eval(ctx))
+@operator_fn('value')
+def Bool(self, ctx):
+    return bool(self.value.eval(ctx))
 
-@operator('!name')
-class Load(Node):
-    def eval(self, ctx):
-        return ctx.load(self.name)
+@operator_fn('!name')
+def Load(self, ctx):
+    return ctx.load(self.name)
 
-@operator('!name', 'value')
-class Store(Node):
-    def eval(self, ctx):
-        return ctx.store(self.name, self.value.eval(ctx))
+@operator_fn('!name', 'value')
+def Store(self, ctx):
+    return ctx.store(self.name, self.value.eval(ctx))
 
 @operator('lhs', 'rhs')
 class Binop(Node):
@@ -187,10 +191,9 @@ class Tri(Osc):
     def eval_wave(self, phase):
         return 4 * phase - 1 if phase < 0.5 else -4 * phase + 3
 
-@operator()
-class Noise(Node):
-    def eval(self, ctx):
-        return 2 * random.random() - 1
+@operator_fn()
+def Noise(self, ctx):
+    return 2 * random.random() - 1
 
 # Equations for these filters from https://github.com/graue/luasynth
 @operator('input', 'cutoff', 'resonance')
@@ -304,25 +307,22 @@ class Diatonic(Node):
             self.value = 256 * Diatonic.half_step ** (note - 40)
         return self.value
 
-@operator('note', 'scale')
-class Scale(Node):
-    def eval(self, ctx):
-        note = int(self.note.eval(ctx))
-        while not self.scale.eval(ctx)[note % 12]:
-            note -= 1
-        return note
+@operator_fn('note', 'scale')
+def Scale(self, ctx):
+    note = int(self.note.eval(ctx))
+    while not self.scale.eval(ctx)[note % 12]:
+        note -= 1
+    return note
 
 major_notes = [1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1] * 2
 scales = {root: major_notes[root:root+12] for root in range(12)}
-@operator('root')
-class MajorScale(Node):
-    def eval(self, ctx):
-        return scales[self.root.eval(ctx)]
+@operator_fn('root')
+def MajorScale(self, ctx):
+    return scales[self.root.eval(ctx)]
 
-@operator('bpm')
-class Beat(Node):
-    def eval(self, ctx):
-        return ctx.load('sample') * self.bpm.eval(ctx) / (ctx.load('sample_rate') * 60)
+@operator_fn('bpm')
+def Beat(self, ctx):
+    return ctx.load('sample') * self.bpm.eval(ctx) / (ctx.load('sample_rate') * 60)
 
 @operator('!notes', 'beat')
 class Rhythm(Node):
@@ -370,10 +370,9 @@ class Trigger(Node):
         [beat, changed] = self.beat.eval_changed(ctx)
         return changed
 
-@operator('beat', 'args')
-class Switcher(Node):
-    def eval(self, ctx):
-        return self.args[int(self.beat.eval(ctx)) % len(self.args)].eval(ctx)
+@operator_fn('beat', 'args')
+def Switcher(self, ctx):
+    return self.args[int(self.beat.eval(ctx)) % len(self.args)].eval(ctx)
 
 class HistBuffer:
     def __init__(self):
@@ -413,37 +412,34 @@ def Delay(value, time, drywet, feedback):
 def interpolate(value1, value2, ratio):
     return value1 * ratio + value2 * (1 - ratio)
 
-@operator('value1', 'value2', 'ratio')
-class Interpolate(Node):
-    def eval(self, ctx):
-        return interpolate(self.value1.eval(ctx), self.value2.eval(ctx),
-            self.ratio.eval(ctx))
+@operator_fn('value1', 'value2', 'ratio')
+def Interpolate(self, ctx):
+    return interpolate(self.value1.eval(ctx), self.value2.eval(ctx),
+        self.ratio.eval(ctx))
 
-@operator('value', 'folds', 'gain', 'base')
-class WaveFolder(Node):
-    def eval(self, ctx):
-        folds = int(self.folds.eval(ctx))
-        base = self.base.eval(ctx)
-        value = (self.value.eval(ctx) - base) * self.gain.eval(ctx) * folds
-        for i in range(folds):
-            if value > 1:
-                value = 2 - value
-            elif value < -1:
-                value = -2 - value
-        return value + base
+@operator_fn('value', 'folds', 'gain', 'base')
+def WaveFolder(self, ctx):
+    folds = int(self.folds.eval(ctx))
+    base = self.base.eval(ctx)
+    value = (self.value.eval(ctx) - base) * self.gain.eval(ctx) * folds
+    for i in range(folds):
+        if value > 1:
+            value = 2 - value
+        elif value < -1:
+            value = -2 - value
+    return value + base
 
 def Chord(notes, base, fn):
     # HACK? Copy the function
     return sum(FunctionCall(copy.deepcopy(fn), {'note': base + k}) for k in notes)
 
-@operator('value', 'position')
-class Pan(Node):
-    def eval(self, ctx):
-        value = self.value.eval(ctx)
-        pos = (self.position.eval(ctx) + 1) / 2
-        if ctx.load('channel'):
-            pos = 1 - pos
-        return value * pos
+@operator_fn('value', 'position')
+def Pan(self, ctx):
+    value = self.value.eval(ctx)
+    pos = (self.position.eval(ctx) + 1) / 2
+    if ctx.load('channel'):
+        pos = 1 - pos
+    return value * pos
 
 @operator('expr', '!args')
 class FunctionCall(Node):
