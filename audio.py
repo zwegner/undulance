@@ -150,6 +150,7 @@ class Osc(Node):
     def setup(self):
         self.phase = 0
         self.last_sync_phase = 1
+        self.last_sync_sample = 0
     def eval(self, ctx):
         [freq, changed] = self.freq.eval_changed(ctx)
         if changed:
@@ -158,9 +159,9 @@ class Osc(Node):
             assert isinstance(self.sync, Osc), str(self.sync)
             self.sync.eval(ctx)
             if self.sync.phase < self.last_sync_phase:
-                self.phase = 0
+                self.last_sync_sample = ctx.load('sample')
             self.last_sync_phase = self.sync.phase
-        self.phase += self.ratio
+        self.phase = (ctx.load('sample') - self.last_sync_sample) * self.ratio
         self.phase -= int(self.phase)
         return self.eval_wave(self.phase)
     def __str__(self):
