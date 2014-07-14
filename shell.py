@@ -6,7 +6,7 @@ import threading
 import traceback
 
 sample_rate = 44100
-channels = 1
+channels = 2
 
 export = None
 if len(sys.argv) > 1:

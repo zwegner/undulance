@@ -442,6 +442,9 @@ def Pan(self, ctx):
         pos = 1 - pos
     return value * pos
 
+def Chorus(value, rate, base=.01, diff=.003):
+    return Delay(value, base + diff * Sine(rate) * Interpolate(1, -1, 'channel'), .5, 0)
+
 @operator('expr', '!args')
 class FunctionCall(Node):
     def eval(self, ctx):
