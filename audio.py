@@ -431,8 +431,7 @@ def WaveFolder(self, ctx):
     return value + base
 
 def Chord(notes, base, fn):
-    # HACK? Copy the function
-    return sum(FunctionCall(copy.deepcopy(fn), {'note': base + k}) for k in notes)
+    return sum(FunctionCall(fn, {'note': base + k}) for k in notes)
 
 @operator_fn('value', 'position')
 def Pan(self, ctx):
@@ -449,10 +448,7 @@ def Chorus(value, rate, base=.01, diff=.003):
 class FunctionCall(Node):
     def eval(self, ctx):
         for k, v in self.args.items():
-            # HACK...?
-            if isinstance(v, Node):
-                v = v.eval(ctx)
-            ctx.store(k, v)
+            ctx.store(k, v.eval(ctx))
         return self.expr.eval(ctx)
     def __str__(self):
         return 'f(%s) { %s }' % (', '.join(self.args), self.expr)
@@ -492,7 +488,7 @@ class MIDIShim(Node):
     def eval(self, ctx):
         return self.eq.eval(ctx)
     def set_notes(self, notes):
-        self.eq = sum((FunctionCall(copy.deepcopy(self.value), {'note': k, 'velocity': v})
+        self.eq = sum((FunctionCall(self.value, {'note': Int(k), 'velocity': Int(v)})
             for k, v in notes.items()), Const(0))
 
 beat = Beat(120)
