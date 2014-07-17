@@ -6,7 +6,7 @@ import threading
 import traceback
 
 sample_rate = 44100
-channels = 2
+channels = 1
 
 export = None
 if len(sys.argv) > 1:
@@ -68,6 +68,7 @@ last_audio = audio
 while not export or sample < export_samples:
     try:
         sample += 1
+        ctx.reset()
         ctx.store('sample', sample)
         for channel in range(channels):
             ctx.store('channel', channel)

@@ -6,11 +6,15 @@ import threading
 class Context:
     def __init__(self):
         self.syms = {}
+        self.value_cache = {}
     def load(self, name):
         return self.syms.get(name, 0)
     def store(self, name, value):
         self.syms[name] = value
         return value
+    def reset(self):
+        # XXX Clear cache. This is kinda wonky...
+        self.value_cache = {}
 
 def fixup(arg):
     if isinstance(arg, list):
@@ -40,6 +44,11 @@ def operator(*params, **kwparams):
             if hasattr(self, 'setup'):
                 self.setup()
         cls.__init__ = __init__
+
+        # Redirect eval() calls through a caching layer, so that each node
+        # gets evaluated at most once per sample
+        cls.base_eval, cls.eval = cls.eval, cls.eval_cached
+
         if not hasattr(cls, '__str__'):
             def __str__(self):
                 return '%s(%s)' % (self.__class__.__name__,
@@ -59,6 +68,10 @@ def operator_fn(*params, **kwparams):
 class Node:
     def __int__(self):
         return Int(self)
+    def eval_cached(self, ctx):
+        if self not in ctx.value_cache:
+            ctx.value_cache[self] = self.base_eval(ctx)
+        return ctx.value_cache[self]
     def eval_changed(self, ctx):
         value = self.eval(ctx)
         result = [value, value != self.last_value]
@@ -88,13 +101,13 @@ def Load(self, ctx):
 def Store(self, ctx):
     return ctx.store(self.name, self.value.eval(ctx))
 
-@operator('lhs', 'rhs')
 class Binop(Node):
     def __str__(self):
         return '(%s %s %s)' % (self.lhs, self.__class__.op, self.rhs)
 
 def binop(op):
     def deco(x):
+        x = operator('lhs', 'rhs')(x)
         x.op = op
         return x
     return deco
@@ -444,6 +457,8 @@ def Chorus(value, rate, base=.01, diff=.003):
 
 @operator('expr', '!args')
 class FunctionCall(Node):
+    def setup(self):
+        self.expr = copy.deepcopy(self.expr)
     def eval(self, ctx):
         for k, v in self.args.items():
             ctx.store(k, v.eval(ctx))
