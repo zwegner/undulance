@@ -316,7 +316,7 @@ class Diatonic(Node):
     def eval(self, ctx):
         [note, changed] = self.note.eval_changed(ctx)
         if changed:
-            self.value = 256 * Diatonic.half_step ** (note - 40)
+            self.value = 256 * Diatonic.half_step ** (note - 60)
         return self.value
 
 @operator_fn('note', 'scale')
@@ -488,7 +488,8 @@ class MIDIThread(threading.Thread):
                 if msg.type == 'note_on':
                     notes[msg.note] = msg.velocity
                 elif msg.type == 'note_off':
-                    del notes[msg.note]
+                    if msg.note in notes:
+                        del notes[msg.note]
                 self.shim.set_notes(notes)
 
 @operator('!device', '!value')
