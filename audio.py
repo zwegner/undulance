@@ -453,6 +453,35 @@ def Pan(self, ctx):
         pos = 1 - pos
     return 2 * value * pos
 
+@operator('value', 'pos_x', 'pos_y')
+class Pan2D(Node):
+    def setup(self):
+        self.hist_buffer = HistBuffer()
+    def eval(self, ctx):
+        self.hist_buffer.push_value(self.value.eval(ctx))
+
+        # Very basic model of human hearing: figure out a distance from each
+        # virtual ear (i.e. stereo channel), and compute a delay time from this
+        # based on an arbitrary-but-seems-to-sound-OK speed of sound figure.
+        pos_x = self.pos_x.eval(ctx)
+        pos_y = self.pos_y.eval(ctx)
+
+        channel = ctx.load('channel')
+        if channel:
+            pos_x = -pos_x
+        pos_x -= .1 # Distance from ear to center of head
+
+        dist = math.hypot(pos_x, pos_y)
+        delay = int(dist * ctx.load('sample_rate') / 50)
+
+        # Also very rough attenuation based on traveling through a virtual
+        # human head. Dumb geometric approximation--basically increase linearly
+        # from .5 attenuation on the other side of the head to 1 in the center.
+        angle = abs(math.atan2(pos_y, pos_x))
+        att = 1 - max(0, angle / (2 * math.pi))
+
+        return att * self.hist_buffer[delay]
+
 def Chorus(value, rate, base=.01, diff=.003):
     return Delay(value, base + diff * Sine(rate) * Interpolate(1, -1, 'channel'), .5, 0)
 
