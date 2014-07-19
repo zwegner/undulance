@@ -451,7 +451,7 @@ def Pan(self, ctx):
     pos = (self.position.eval(ctx) + 1) / 2
     if ctx.load('channel'):
         pos = 1 - pos
-    return value * pos
+    return 2 * value * pos
 
 def Chorus(value, rate, base=.01, diff=.003):
     return Delay(value, base + diff * Sine(rate) * Interpolate(1, -1, 'channel'), .5, 0)
