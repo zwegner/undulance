@@ -182,6 +182,10 @@ class Sine(Osc):
     def eval_wave(self, phase):
         return math.sin(phase * 2 * math.pi)
 
+class Cosine(Osc):
+    def eval_wave(self, phase):
+        return math.cos(phase * 2 * math.pi)
+
 class Square(Osc):
     def eval_wave(self, phase):
         return 1 if phase > 0.5 else -1
