@@ -261,6 +261,19 @@ class NotchFilter(Filter):
     def get_coeffs(self, sin_w0, cos_w0):
         return [1, -2 * cos_w0, 1]
 
+@operator('input', 'cutoff')
+class AllpassFilter(Filter):
+    def setup(self):
+        self.last = 0
+    def eval(self, ctx):
+        delay = self.cutoff.eval(ctx) / ctx.load('sample_rate')
+        c = (1 - delay) / (1 + delay)
+
+        x0 = self.input.eval(ctx)
+        y0 = -c * x0 + self.last
+        self.last = c * y0 + x0
+        return y0
+
 @operator('value', 'cutoff')
 class SoftSaturation(Node):
     def eval_cutoff(self, value, cutoff):
@@ -421,6 +434,12 @@ def Delay(value, time, drywet, feedback):
     delayed = Store(temp, Historic(value + feedback * Load(temp),
         (time * Load('sample_rate'))))
     return Interpolate(value, delayed, drywet)
+
+def Phaser(value, cutoff, drywet, stages=12):
+    filtered = value
+    for i in range(stages):
+        filtered = AllpassFilter(filtered, cutoff)
+    return Interpolate(value, filtered, drywet)
 
 def interpolate(value1, value2, ratio):
     return value1 * (1 - ratio) + value2 * ratio
