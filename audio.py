@@ -405,11 +405,8 @@ class HistBuffer:
 class Historic(Node):
     def setup(self):
         self.hist_buffer = HistBuffer()
-        self.current_sample = None
     def eval(self, ctx):
-        if self.current_sample != ctx.load('sample'):
-            self.hist_buffer.push_value(self.value.eval(ctx))
-            self.current_sample = ctx.load('sample')
+        self.hist_buffer.push_value(self.value.eval(ctx))
         return self.hist_buffer[int(self.index.eval(ctx))]
 
 temp_id = 0
