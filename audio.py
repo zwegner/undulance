@@ -420,10 +420,10 @@ def Delay(value, time, drywet, feedback):
     temp = '__delay%s' % temp_id
     delayed = Store(temp, Historic(value + feedback * Load(temp),
         (time * Load('sample_rate'))))
-    return Interpolate(delayed, value, drywet)
+    return Interpolate(value, delayed, drywet)
 
 def interpolate(value1, value2, ratio):
-    return value1 * ratio + value2 * (1 - ratio)
+    return value1 * (1 - ratio) + value2 * ratio
 
 @operator_fn('value1', 'value2', 'ratio')
 def Interpolate(self, ctx):
