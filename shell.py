@@ -27,7 +27,7 @@ if 0:
             rate=sample_rate,
             output=True)
 else:
-    args = ['sox', '-q', '-r', '44100', '-b', '16', '-e',
+    args = ['sox', '-q', '-r', str(sample_rate), '-b', '16', '-e',
             'signed-integer', '-c', str(channels), '-t', 'raw',
             '--buffer', '512', '-']
     if export:
