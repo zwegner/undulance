@@ -29,7 +29,7 @@ if 0:
 else:
     args = ['sox', '-q', '-r', '44100', '-b', '16', '-e',
             'signed-integer', '-c', str(channels), '-t', 'raw',
-            '--buffer', '128', '-']
+            '--buffer', '512', '-']
     if export:
         ftype = export.partition('.')[2]
         args += ['-t', ftype, export]
@@ -68,9 +68,9 @@ last_audio = audio
 while not export or sample < export_samples:
     try:
         sample += 1
-        ctx.reset()
         ctx.store('sample', sample)
         for channel in range(channels):
+            ctx.reset()
             ctx.store('channel', channel)
             value = int(audio.eq.eval(ctx) * (65535 / 20.))
             # Hard clipping? Hard clipping.
