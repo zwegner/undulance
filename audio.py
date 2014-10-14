@@ -47,7 +47,8 @@ def operator(*params, **kwparams):
 
         # Redirect eval() calls through a caching layer, so that each node
         # gets evaluated at most once per sample
-        cls.base_eval, cls.eval = cls.eval, cls.eval_cached
+        if not hasattr(cls, 'base_eval'):
+            cls.base_eval, cls.eval = cls.eval, cls.eval_cached
 
         if not hasattr(cls, '__str__'):
             def __str__(self):
@@ -174,37 +175,37 @@ class Osc(Node):
             self.last_sync_phase = self.sync.phase
         self.phase += self.ratio
         self.phase -= int(self.phase)
-        return self.eval_wave(self.phase)
+        return self.eval_wave(ctx, self.phase)
     def __str__(self):
         return '%s(%s)' % (self.__class__.__name__, self.freq)
 
 class Sine(Osc):
-    def eval_wave(self, phase):
+    def eval_wave(self, ctx, phase):
         return math.sin(phase * 2 * math.pi)
 
 class Cosine(Osc):
-    def eval_wave(self, phase):
+    def eval_wave(self, ctx, phase):
         return math.cos(phase * 2 * math.pi)
 
 class Square(Osc):
-    def eval_wave(self, phase):
+    def eval_wave(self, ctx, phase):
         return 1 if phase > 0.5 else -1
 
-@operator('freq', 'pulse_width')
+@operator('freq', 'pulse_width', sync=None)
 class Pulse(Osc):
-    def eval_wave(self, phase):
+    def eval_wave(self, ctx, phase):
         return 1 if phase > self.pulse_width.eval(ctx) else -1
 
 class SawUp(Osc):
-    def eval_wave(self, phase):
+    def eval_wave(self, ctx, phase):
         return 2 * phase - 1
 
 class SawDown(Osc):
-    def eval_wave(self, phase):
+    def eval_wave(self, ctx, phase):
         return -2 * phase + 1
 
 class Tri(Osc):
-    def eval_wave(self, phase):
+    def eval_wave(self, ctx, phase):
         return 4 * phase - 1 if phase < 0.5 else -4 * phase + 3
 
 @operator_fn()
