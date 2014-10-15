@@ -540,17 +540,29 @@ class MIDIThread(threading.Thread):
                 elif msg.type == 'note_off':
                     if msg.note in notes:
                         del notes[msg.note]
+                elif msg.type == 'control_change':
+                    self.shim.set_control(msg.control, msg.value)
                 self.shim.set_notes(notes)
 
 @operator('!device', '!value')
 class MIDIShim(Node):
     def setup(self):
         self.eq = Const(0)
+        self.changed = 0
+        self.controls = {}
         self.thread = MIDIThread(self)
         self.thread.daemon = True
         self.thread.start()
     def eval(self, ctx):
+        if self.changed:
+            self.changed = 0
+            print(self.controls)
+            for k, v in self.controls.items():
+                ctx.store('CC%i' % k, v)
         return self.eq.eval(ctx)
     def set_notes(self, notes):
         self.eq = sum((FunctionCall(self.value, {'note': Int(k), 'velocity': Int(v)})
             for k, v in notes.items()), Const(0))
+    def set_control(self, control, value):
+        self.changed = 1
+        self.controls[control] = value
