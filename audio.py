@@ -334,7 +334,7 @@ class Diatonic(Node):
     def eval(self, ctx):
         [note, changed] = self.note.eval_changed(ctx)
         if changed:
-            self.value = 256 * Diatonic.half_step ** (note - 60)
+            self.value = 440 * Diatonic.half_step ** (note - 69)
         return self.value
 
 @operator_fn('note', 'scale')
