@@ -270,9 +270,9 @@ class AllpassFilter(Filter):
         delay = self.cutoff.eval(ctx) / ctx.load('sample_rate')
         c = (1 - delay) / (1 + delay)
 
-        x0 = self.input.eval(ctx)
-        y0 = -c * x0 + self.last
-        self.last = c * y0 + x0
+        v = self.input.eval(ctx)
+        y0 = -c * v + self.last
+        self.last = c * y0 + v
         return y0
 
 @operator('value', 'cutoff')
@@ -554,14 +554,3 @@ class MIDIShim(Node):
     def set_notes(self, notes):
         self.eq = sum((FunctionCall(self.value, {'note': Int(k), 'velocity': Int(v)})
             for k, v in notes.items()), Const(0))
-
-beat = Beat(120)
-section = Switcher(beat / 4, [1, 3, 6, 8])
-bs = beat * section
-eq = Const(0)
-#eq += EnvelopeBeat(SawUp(Diatonic(section + Switcher(beat * section, [30, 32, 39, 42]))), beat * section)
-eq = EnvelopeBeat(SawUp(Diatonic(Scale(Sample(Trigger(bs), SawDown(Const(200) / (section + .5)) * 13 + 40), MajorScale(0)))), section / 10, bs)
-#eq += ExpEnvelopeBeat(Square(96), beat)
-#eq += ExpEnvelopeBeat(SawUp(256), beat * section)
-#eq += ExpEnvelopeBeat(Square(Diatonic(Sample(Trigger(beat*section), SawUp(beat*2 + 490)) * 4 + 30)), beat)
-#eq += ExpEnvelopeBeat(Noise(), beat / 4)
